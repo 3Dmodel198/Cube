@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>net.ms</title>
+<style>
+* { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+html { width:100%; height:100%; margin:0; overflow:hidden; background:#000; }
+body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; user-select:none; position:fixed; inset:0; width:100%; height:100%; touch-action:none; }
+canvas { display:block; width:100%; height:100%; }
+#rotate-device { position:fixed; inset:0; background:#1a1a1a; color:white; z-index:1000; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+@media (orientation: portrait) and (max-width:1024px) { #rotate-device { display:flex; } }
+#main-menu { position:absolute; inset:0; background:linear-gradient(-45deg,#0f0c29,#302b63,#24243e); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:200; color:white; overflow:auto; }
+.menu-card { background:rgba(255,255,255,.05); padding:16px; border-radius:20px; backdrop-filter:blur(15px); border:1px solid rgba(255,255,255,.1); display:flex; flex-direction:column; gap:8px; width:320px; }
+.menu-btn { padding:12px; font-size:15px; font-weight:bold; border:none; border-radius:10px; color:white; cursor:pointer; }
+.host-btn { background:#2ed573; } .join-btn { background:#1e90ff; }
+.inp { padding:10px; border-radius:10px; text-align:center; background:rgba(0,0,0,.6); color:white; border:1px solid rgba(255,255,255,.2); user-select:text; font-size:15px; }
+#menu-status { text-align:center; font-size:13px; color:#ffa502; min-height:16px; }
+.pc #rotate-device { display:none !important; }
+#pc-hint { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.65); color:#fff; padding:8px 18px; border-radius:20px; font-size:14px; z-index:60; display:none; pointer-events:none; }
+#crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:white; font-size:26px; pointer-events:none; z-index:20; display:none; text-shadow:1px 1px 3px black; }
+#room-id-display { position:absolute; top:12px; left:12px; color:#00f2fe; font-weight:bold; z-index:50; display:none; background:rgba(0,0,0,.4); padding:8px 16px; border-radius:25px; font-size:14px; }
+#chat-btn { position:absolute; top:12px; right:12px; width:46px; height:46px; border-radius:50%; background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.3); display:none; align-items:center; justify-content:center; font-size:22px; z-index:60; }
+#chat-log { position:absolute; top:56px; left:12px; width:45vw; max-height:38vh; overflow:hidden; display:none; flex-direction:column; justify-content:flex-end; gap:2px; z-index:40; pointer-events:none; }
+.line { color:white; font-size:13px; background:rgba(0,0,0,.45); padding:3px 8px; border-radius:8px; width:fit-content; max-width:100%; word-break:break-word; transition:opacity 1s; }
+.line.sys { color:#ffd32a; font-style:italic; } .line.old { opacity:0; } #chat-log.open .line.old { opacity:1; }
+#chat-box { position:fixed; top:8px; left:50%; transform:translateX(-50%); width:min(70vw,460px); display:none; gap:6px; z-index:400; }
+#chat-box input { flex:1; min-width:0; } #chat-box .menu-btn { padding:10px 14px; background:#1e90ff; }
+#ui-controls { position:absolute; bottom:15px; right:15px; display:none; flex-direction:column; align-items:flex-end; gap:10px; z-index:50; pointer-events:none; }
+.row { display:flex; gap:12px; pointer-events:none; }
+.btn.sm { width:62px; height:62px; font-size:10px; }
+.btn { width:75px; height:75px; background:rgba(255,255,255,.15); border-radius:50%; color:white; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; border:2px solid rgba(255,255,255,.3); backdrop-filter:blur(8px); pointer-events:auto; }
+#joystick-zone { position:absolute; bottom:25px; left:25px; width:140px; height:140px; background:rgba(255,255,255,.05); border-radius:50%; z-index:50; display:none; border:1px solid rgba(255,255,255,.2); touch-action:none; }
+#joystick-stick { position:absolute; top:45px; left:45px; width:50px; height:50px; background:rgba(255,255,255,.4); border-radius:50%; pointer-events:none; }
+#inventory-container { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:150; display:none; }
+#inventory { display:flex; gap:3px; background:rgba(0,0,0,.85); padding:6px; border-radius:12px; border:1px solid rgba(255,255,255,.2); }
+.slot { width:clamp(26px,4.4vw,42px); aspect-ratio:1; border:2px solid rgba(255,255,255,.2); border-radius:6px; padding:1px; display:flex; align-items:center; justify-content:center; color:white; font-size:16px; }
+.slot.active { border-color:#00f2fe; box-shadow:0 0 12px #00f2fe; transform:translateY(-4px); }
+.slot canvas, .pcell canvas { width:100%; height:100%; image-rendering:pixelated; display:block; }
+#inv-panel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(92vw,480px); max-height:88vh; background:rgba(10,10,20,.96); border:2px solid #00f2fe; border-radius:16px; padding:10px; z-index:300; display:none; flex-direction:column; gap:8px; color:white; }
+.tabs { display:flex; gap:6px; } .tab { flex:1; padding:9px 2px; border-radius:8px; background:#222; text-align:center; font-size:12px; font-weight:bold; } .tab.on { background:#00f2fe; color:#000; }
+#pgrid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; overflow-y:auto; touch-action:pan-y; }
+.pcell { aspect-ratio:1; max-height:64px; border:2px solid rgba(255,255,255,.3); border-radius:8px; padding:3px; }
+</style>
+</head>
+<body>
+<div id="rotate-device">🔄<p>Cihazı yan çevirin!</p></div>
+
+<div id="main-menu">
+  <h1 style="letter-spacing:8px; margin:0 0 12px; font-size:24px;">VOXEL PRO</h1>
+  <div class="menu-card">
+    <input class="inp" id="name-input" maxlength="14" placeholder="Adın">
+    <button class="menu-btn host-btn" onclick="startHost()">HOST</button>
+    <input type="number" class="inp" id="room-input" placeholder="Kod">
+    <button class="menu-btn join-btn" onclick="joinRoom()">Qoşul</button>
+    <div id="menu-status"></div>
+    <div id="pc-help" style="display:none; font-size:11px; color:#aab; text-align:center; line-height:1.6;">WASD — hərəkət · Maus — baxış · Sol klik — qır · Sağ klik — qoy<br>Təkər düyməsi — aç · Space — hop · Shift — əyil · E — envanter<br>1-9 / təkər — slot · / — çat</div>
+  </div>
+</div>
+
+<div id="room-id-display"></div>
+<div id="crosshair">+</div>
+<div id="pc-hint">Oynamaq üçün klikləyin</div>
+<div id="chat-btn" class="ui">💬</div>
+<div id="chat-log"></div>
+<div id="chat-box" class="ui"><input class="inp" id="chat-input" maxlength="120" placeholder="Mesaj..."><button class="menu-btn" id="chat-send">▶</button></div>
+<div id="joystick-zone"><div id="joystick-stick"></div></div>
+
+<div id="inventory-container"><div id="inventory" class="ui"><div id="inv-slots" style="display:flex; gap:3px;"></div><div class="slot ui" id="picker-btn" style="background:#333;">📦</div></div></div>
+<div id="inv-panel" class="ui"><div class="tabs" id="tabs"></div><div id="pgrid"></div></div>
+
+<div id="ui-controls">
+  <div id="btn-jump" class="btn" style="width:85px; height:85px; font-size:14px; background:rgba(255,255,255,.2);">HOP</div>
+  <div class="row">
+    <div id="btn-delete" class="btn" style="border-color:#ff4757; color:#ff4757;">SİL</div>
+    <div id="btn-build" class="btn" style="border-color:#2ed573; color:#2ed573;">QOY</div>
+  </div>
+  <div class="row">
+    <div id="btn-crouch" class="btn sm" style="border-color:#00f2fe; color:#00f2fe;">ƏYİL</div>
+    <div id="btn-use" class="btn sm" style="border-color:#ffa502; color:#ffa502;">AÇ</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
+<script type="module">
+import * as THREE from 'three';
+
+const $ = id => document.getElementById(id);
+const IS_PC = matchMedia('(pointer: fine)').matches, IS_TOUCH = !IS_PC;
+document.documentElement.classList.toggle('pc', IS_PC);
+if (IS_PC) $('pc-help').style.display = 'block';
+const A = 100; // arena yarı-ölçüsü: 200x200
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 70, 260);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 320);
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_TOUCH, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const amb = new THREE.AmbientLight(0xffffff, 0.8); scene.add(amb);
+const sun = new THREE.DirectionalLight(0xffffff, 0.5); sun.position.set(10, 20, 10); scene.add(sun);
+
+const PLAYER_HEIGHT = 1.8, EYE_LEVEL = 1.65, RESPAWN_Y = 3.0;
+let moveX = 0, moveZ = 0, velocityY = 0, canJump = true, pitch = 0, yaw = 0;
+let joystickId = null, lookId = null, lastLookX = 0, lastLookY = 0, keys = {};
+
+// ===== TEKSTURLAR (Minecraft stili, 16x16) =====
+const rnd = s => () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+const sh = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+const N = (c, a, r) => sh(c, 1 + (r() - 0.5) * a);
+const STONE = [125, 125, 125], G = [95, 160, 55], DIRTC = [[134, 96, 67], [100, 70, 48]];
+const GEN = {
+  n: (c, x, y, r) => N(c, .14, r),
+  sp: (c, x, y, r) => r() < .22 ? N(c[1], .2, r) : N(c[0], .14, r),
+  gs: (c, x, y, r) => (y < 3 || (y < 5 && r() < .5)) ? N(G, .2, r) : N(DIRTC[0], .25, r),
+  pl: (c, x, y, r) => (y % 4 === 0 || x === ((y >> 2) & 1 ? 3 : 11)) ? sh(c, .72) : N(c, .1, r),
+  br: (c, x, y, r) => (y % 4 === 3 || (x + ((y >> 2) & 1) * 4) % 8 === 0) ? [175, 170, 160] : N([150, 72, 56], .2, r),
+  cb: (c, x, y, r) => { const o = x + ((y >> 2) & 1) * 2, h = ((o >> 2) * 7 + (y >> 2) * 13) % 10; return (o % 4 === 0 || y % 4 === 0) ? [80, 80, 80] : N([120, 120, 120], .1 + h / 40, r); },
+  sb: (c, x, y, r) => (y % 8 === 0 || (x + ((y >> 3) & 1) * 4) % 8 === 0) ? sh(STONE, .65) : N([135, 135, 135], .1, r),
+  gl: (c, x, y) => (x === 0 || y === 0 || x === 15 || y === 15) ? [210, 235, 245, 255] : (x === y && x % 5 === 2) ? [255, 255, 255, 190] : [180, 220, 255, 45],
+  ls: (c, x, y, r) => sh(N(c, .12, r), x % 4 === 0 ? .8 : 1),
+  lt: (c, x, y, r) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); return d > 7 ? N([102, 81, 50], .2, r) : N(Math.floor(d) % 2 ? [180, 146, 92] : [150, 118, 72], .1, r); },
+  bd: (c, x, y, r) => sh(N(c, .08, r), y % 5 === 0 ? .88 : 1),
+  tr: (c, x, y, r) => y < 5 ? N([255, 170, 40], .15, r) : N([120, 85, 40], .15, r),
+  bed: (c, x, y, r) => (x === 0 || x === 15) ? [110, 25, 25] : y < 5 ? N([238, 238, 242], .06, r) : N([190, 40, 40], .1, r),
+  bedf: (c, x, y, r) => (x === 0 || x === 15 || y === 15) ? [110, 25, 25] : N([190, 40, 40], .1, r),
+  dr: (c, x, y, r) => (x < 2 || x > 13 || y < 1 || y > 14) ? N([85, 58, 32], .1, r) : (y === 7 || y === 8) ? N([110, 76, 42], .1, r) : (x === 12 && y > 8 && y < 12) ? [235, 205, 70] : N([150, 105, 60], .1, r),
+  mt: (c, x, y, r) => { const k = (x === 0 || y === 0) ? 1.25 : (x === 15 || y === 15) ? .75 : r() < .08 ? 1.3 : 1; return sh(N(c, .1, r), k); },
+};
+const IMGS = {door_up:{w:16,h:16,d:"b29v/65dNP9sOx//bDsf/4JJKv+WWDf/bDsf/2w7H/+CSSr/llg3/2w7H/9sOx//gkkq/5ZYN/9WVlb/gkkq/7pdO/+6XTv/bDsf/wAAAAAAAAAAxXJK/2w7H/8AAAAAAAAAAMVySv9sOx//AAAAAAAAAACuXTT/llg3/4JJKv+6XTv/ul07/2w7H/8AAAAAAAAAAMVySv9sOx//AAAAAAAAAADFckr/bDsf/wAAAAAAAAAAul07/65dNP+CSSr/xXJK/7pdO/+CSSr/AAAAAAAAAADFckr/gkkq/wAAAAAAAAAAxXJK/4JJKv8AAAAAAAAAAMVySv+uXTT/gkkq/8t3T/+6XTv/llg3/wAAAAAAAAAAxXJK/5ZYN/8AAAAAAAAAAMVySv+WWDf/AAAAAAAAAADFckr/ul07/2w7H//Ld0//rl00/4JJKv8AAAAAAAAAAMt3T/+CSSr/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/7pdO/9sOx//y3dP/65dNP+WWDf/AAAAAAAAAADLd0//gkkq/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+6XTv/bDsf/8t3T/+6XTv/llg3/wAAAAAAAAAAy3dP/4JJKv8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//ul07/2w7H//Ld0//ul07/5ZYN/8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/7pdO/+CSSr/xXJK/7pdO/+WWDf/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/4JJKv8AAAAAAAAAAMt3T/+6XTv/gkkq/zU1Nf+uXTT/llg3/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+CSSr/AAAAAAAAAADLd0//rl00/5ZYN/9vb2//rl00/4JJKv8AAAAAAAAAAMt3T/+CSSr/AAAAAAAAAADLd0//gkkq/wAAAAAAAAAAy3dP/65dNP+WWDf/ul07/65dNP+WWDf/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+uXTT/gkkq/7pdO/+6XTv/sls7/8VySv/Ld0//y3dP/7JbO//Fckr/y3dP/8t3T/+yWzv/xXJK/8t3T//Ld0//rl00/4JJKv/Fckr/ul07/7pdO/+6XTv/rl00/65dNP+uXTT/ul07/7pdO/+6XTv/rl00/65dNP+uXTT/rl00/65dNP+CSSr/gkkq/5ZYN/9sOx//bDsf/2w7H/9sOx//gkkq/4JJKv+CSSr/gkkq/4JJKv+CSSr/llg3/5ZYN/+WWDf/gkkq/w=="},door_lo:{w:16,h:16,d:"y3dP/8VySv/Fckr/xXJK/8t3T//Ld0//y3dP/8t3T//Ld0//y3dP/8VySv/Fckr/xXJK/8VySv/Fckr/gkkq/8VySv+yWzv/rl00/65dNP+uXTT/ul07/7pdO/+uXTT/rl00/7pdO/+6XTv/rl00/65dNP+uXTT/rl00/55fP//Ld0//sls7/2w7H/9sOx//gkkq/5ZYN/9sOx//bDsf/4JJKv+WWDf/bDsf/2w7H/+CSSr/llg3/65dNP+eXz//y3dP/7JbO/9sOx//AAAAAAAAAADFckr/bDsf/wAAAAAAAAAAxXJK/2w7H/8AAAAAAAAAAMVySv+uXTT/gkkq/zU1Nf+yWzv/gkkq/wAAAAAAAAAAxXJK/4JJKv8AAAAAAAAAAMVySv9sOx//AAAAAAAAAADFckr/rl00/4JJKv9vb2//sls7/4JJKv8AAAAAAAAAAMVySv+WWDf/AAAAAAAAAADFckr/gkkq/wAAAAAAAAAAxXJK/7pdO/+CSSr/ul07/7JbO/+WWDf/AAAAAAAAAADFckr/llg3/wAAAAAAAAAAxXJK/5ZYN/8AAAAAAAAAAMVySv+6XTv/gkkq/7pdO/+yWzv/llg3/wAAAAAAAAAAy3dP/4JJKv8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//ul07/4JJKv/Ld0//sls7/4JJKv8AAAAAAAAAAMt3T/+CSSr/AAAAAAAAAADLd0//gkkq/wAAAAAAAAAAy3dP/7pdO/+CSSr/y3dP/7JbO/+WWDf/AAAAAAAAAADLd0//gkkq/wAAAAAAAAAAy3dP/4JJKv8AAAAAAAAAAMt3T/+uXTT/bDsf/8t3T/+6XTv/llg3/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//rl00/2w7H//Fckr/ul07/5ZYN/8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/7pdO/9sOx//y3dP/7pdO/+CSSr/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+6XTv/gkkq/8t3T/+6XTv/gkkq/wAAAAAAAAAAy3dP/5ZYN/8AAAAAAAAAAMt3T/+CSSr/AAAAAAAAAADLd0//ul07/2w7H//Fckr/rl00/5ZYN/8AAAAAAAAAAMt3T/+WWDf/AAAAAAAAAADLd0//llg3/wAAAAAAAAAAy3dP/7pdO/+CSSr/NTU1/65dNP+yWzv/xXJK/8t3T//Ld0//sls7/8VySv/Ld0//y3dP/7JbO//Fckr/NTU1/1FRUf9ycnL/gkkq/w=="},bed:{w:64,h:32,d:"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvJhi/5+ETf+fhE3/n4RN/5+ETf+8mGL/vJhi/7SQWv+fhE3/vJhi/7yYYv+8mGL/vJhi/7yYYv+8mGL/n4RN/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALyYYv+8mGL/tJBa/3NeOf+0kFr/tJBa/5+ETf+fhE3/n4RN/5+ETf+fhE3/tJBa/5+ETf+0kFr/vJhi/5+ETf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC8mGL/vJhi/5+ETf+fhE3/n4RN/5+ETf+0kFr/tJBa/3NeOf+8mGL/vJhi/7SQWv+8mGL/vJhi/7yYYv+fhE3/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaVQz/2lUM/9pVDP/c145/3NeOf9zXjn/c145/3NeOf9zXjn/c145/2lUM/9pVDP/aVQz/2lUM/9zXjn/c145/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALyYYv+fhE3/n4RN/5+ETf+fhE3/vJhi/7yYYv+fhE3/vJhi/5+ETf+fhE3/c145/7SQWv+0kFr/tJBa/7yYYv8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACfhE3/n4RN/3NeOf+0kFr/tJBa/7SQWv+8mGL/n4RN/7SQWv+0kFr/tJBa/7SQWv+fhE3/n4RN/5+ETf+fhE3/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvJhi/7yYYv+8mGL/tJBa/7yYYv+8mGL/vJhi/5+ETf+fhE3/n4RN/3NeOf+8mGL/vJhi/7yYYv+8mGL/vJhi/wD///8G5///C9j//w/I//8UuP//GKf//xyY//8ekP//HpD//xin//8UuP//D8f//wvY//8G5///Avj//wD///8A////A/T//wXt//8H5f//Cd7//wvW//8Nz///D8j//xHA//8TuP//FbH//xeq//8Zo///G5v//x2U//8ekP//HpD//xin//8UuP//D8f//wvY//8G5///Avj//wD///+2trb/zs3Q/83Tz//My8v/tbi5/7u6t/+3trv/tbC2/3NeOf9zXjn/aVQz/2lUM/9pVDP/aVQz/2lUM/9zXjn/c145/3NeOf9pVDP/aVQz/2lUM/9pVDP/c145/3NeOf8A////Buj//wrX//8PyP//E7f//xio//8cl///HpD//x6Q//8YqP//E7f//w/H//8K1///Buj//wL3//8A////AP///wP0//8F7P//B+X//wne//8L1///Dc///w/I//8RwP//E7n//xWx//8Xqv//GaL//xub//8dk///HpD//x6Q//8YqP//E7f//w/H//8K1///Buj//wL3//8A////uba0/+3u7v/u8e7/6e7x/+3w7v/u7+7/zdLP/7a1uP+8mGL/vJhi/7yYYv+8mGL/vJhi/3NeOf+fhE3/vJhi/7yYYv+0kFr/tJBa/7SQWv+8mGL/vJhi/7yYYv+fhE3/AP///wbn//8L2P//D8j//xS4//8Yp///HJj//x6Q//8ekP//GKf//xS4//8Px///C9j//wbn//8C+P//AP///wD///8D9P//Be3//wfl//8J3v//C9b//w3P//8PyP//EcD//xO4//8Vsf//F6r//xmj//8bm///HZT//x6Q//8ekP//GKf//xS4//8Px///C9j//wbn//8C+P//AP///7W1tv/Kz9D/7unq/+/q7P/u7u7/6Ofp/9HPz/+2trX/n4RN/5+ETf+fhE3/n4RN/5+ETf+8mGL/tJBa/7SQWv+fhE3/n4RN/5+ETf9zXjn/vJhi/5+ETf+fhE3/n4RN/wD///8G6P//Ctf//w/I//8Tt///GKj//xyX//8ekP//GKT//xWz//8RwP//Dc7//wnc//8G6v//Avj//wD///8A////A/T//wXs//8H5f//Cd7//wvX//8Nz///D8j//xHA//8Tuf//FbH//xeq//8Zov//G5v//x2T//8ekP//HpD//xio//8Tt///D8f//wrX//8G6P//Avf//wD///+1trb/uLq5/9DWzv/Jys3/yMjM/7O2tv+0uLj/tra3/7yYYv+0kFr/tJBa/7SQWv+8mGL/vJhi/5+ETf+fhE3/n4RN/5+ETf+0kFr/tJBa/7SQWv+0kFr/tJBa/5+ETf+nkEr/kW02/4xpMv+UbTj/kG04/5NvO/+NaC7/i2kz/5RuNP+Razb/h2kx/4trMv+Rbjb/k281/5FwOf9TQRv/qo9M/5FuOP+HajL/knA4/49qO/+TbDn/iWcy/4loMP+Rbzb/k2w4/4hoM/+HZDL/kWs5/5BzNf+RbDn/iGg0/4lpMf+LaC//kWw4/5FsN/+PcDr/k287/5FrN/+OajX/jGgy/5FqNP+JZzX/km05/4tuN/+RbjX/j202/1s7G/9zXjn/aVQz/3NeOf9zXjn/aVQz/2lUM/9pVDP/c145/3NeOf9zXjn/c145/3NeOf9pVDP/aVQz/2lUM/9zXjn/sZZV/4hnMf9nQyL/bEQg/2pDIP9tQSD/aUEd/21AIP9XOhf/Vjwi/2tCHv9qRCH/Wz8Z/5F0R/+Obzj/WEAb/66XUP+JajT/az8h/2tBH/9qQh7/aUMe/2lBHv9oRSD/VT8Z/1Y8HP9qRBv/akQf/1c5Gf9qPiD/aEMe/2lCH/9nRSD/WD8a/29DHv9qQh//Vjsb/2pEH/9qRCP/bUUf/2hCHf9oQh//a0Eg/2tEHv9lQR3/knVH/41sPf9XOhv/vJhi/7yYYv+8mGL/vJhi/7yYYv+fhE3/vJhi/5+ETf+fhE3/c145/5+ETf+fhE3/tJBa/7yYYv+8mGL/vJhi/6yPRf+MYzH/Vjwa/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACqkUj/k206/1Y9Hv+qjUn/iWgt/1g8Hf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKqRTP+Sbzn/Wj8b/7SQWv+fhE3/c145/7yYYv+8mGL/vJhi/7yYYv+fhE3/vJhi/7SQWv+0kFr/n4RN/5+ETf+fhE3/n4RN/7SQWv+umVL/jG48/1k8F/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsZZR/5FtOv9uRh3/sJZR/49pN/9VPR//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACxllH/kW04/2pCIv+8mGL/vJhi/5+ETf+fhE3/n4RN/7yYYv+8mGL/n4RN/7yYYv+8mGL/n4RN/7SQWv+8mGL/vJhi/7yYYv+8mGL/qopL/5htNf9sQx//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKqOSv+Sbjr/aUUe/62PSv+UbDj/a0Qd/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqo5E/5RtOP9qQh//c145/3NeOf9zXjn/fGI+/2lUM/9pVDP/fGI+/2lUM/9zXjn/c145/3NeOf9pVDP/TD0m/2lUM/9pVDP/c145/wD///8D9P//Bez//wfl//8J3v//C9f//w3P//8PyP//EcD//xO5//8Vsf//F6r//xmi//8bm///HZP//x6Q//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHpD//xio//8Tt///D8f//wrX//8G6P//Avf//wD///+ys6//ra2t/7zAvv/Jx8f/sLGy/52gn/+fnJ3/t7a0/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////A/T//wXt//8H5f//Cd7//wvW//8Nz///D8j//xHA//8TuP//FbH//xeq//8Zo///G5v//x2U//8ekP//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB6Q//8Yp///FLj//w/H//8L2P//Buf//wL4//8A////xsTL/9DT0P/m6+r/9vT3/9LX1v+4s7X/sKqr/5+kof8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wP0//8F7P//B+X//wne//8L1///Dc///w/I//8RwP//E7n//xWx//8Xqv//GaL//xub//8dk///ERER/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERH/ERER/xEREf8Px///Ctf//wbo//8C9///AP///8bIxf/y8vP///z////////z8/n/0c7Q/7Gxrv+gnJ3/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8D9P//Be3//wfl//8J3v//C9b//w3P//8PyP//EcD//xO4//8Vsf//F6r//xmj//8bm///HZT//xEREf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERER/xEREf8RERH/D8f//wvY//8G5///Avj//wD////Oy8n/+fn6///9///8+/7/9PPw/+Xn5/+5ur3/nJ6g/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////A/T//wXs//8H5f//Cd7//wvX//8Nz///ERER/xEREf8RERH/ERER/xEREf8RERH/HpD//x2T//8A////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8RERH/ERER/w/H//8K1///Buj//wL3//8A////0dfT//z+/v/9/fz//vX4/+3n6v/x6e//y8XJ/6eho/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wP0//8F7f//B+X//wne//8L1v//Dc///xEREf8RERH/ERER/xEREf8RERH/ERER/x6Q//8dlP//AL///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////ERER/xEREf8Px///C9j//wbn//8C+P//AP///9XV2v/39vP/+fT2//Hz8f/t6uv/7erq/9PR0f+ys7D/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8D9P//Bez//wfl//8J3v//C9f//w3P//8PyP//EcD//xEREf8RERH/ERER/xEREf8RERH/ERER/x6Q//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHpD//xio//8Tt///D8f//wrX//8G6P//Avf//wD////V1dX/8O/x//Xx8f/r7fD/6+rs/+Xp8f/RztL/trW7/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////A/T//wXt//8H5f//Cd7//wvW//8Nz///D8j//xHA//8RERH/ERER/xEREf8RERH/ERER/xEREf8ekP//u7O2/87Sz//Pz8//ycnJ/7a4uP+6ubP/tbOx/7iztf+0tbf/ztDR/8zP0v/Nzcv/u7e0/7u3vP+2trX/tri2/x6Q//8Yp///FLj//w/H//8L2P//Buf//wL4//8A////19rc/+7x7//x8fH/7O7x/+vr7P/r7uv/zNHP/7W2tf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wP0//8F7P//B+X//wne//8L1///Dc///w/I//8RwP//ERER/xEREf8RERH/ERER/xEREf8RERH/HpD//7W4uf/Oz8//7ers/+/s7v/5+/j/+Pr6//j4+v/3+Pb/+vf3//r2+P/v7+7/8e/r/+vy8v/v6+//z83R/7a3tf8ekP//GKj//xO3//8Px///Ctf//wbo//8C9///AP///9bW1v/x9PD/9fHv/+7u8P/s6uj/6Orr/8zP0f+yrrT/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8D9P//Be3//wfl//8J3v//C9b//w3P//8PyP//EcD//xEREf8RERH/ERER/xEREf8RERH/ERER/x6Q//+3tbb/1NDP/+ju8//t7vD/8O3p/+vu6//u7+7/8+vv//r6+P/x7u7/7PDs//f39v/v8O7/8Ozv/87T0v+3tLT/HpD//xin//8UuP//D8f//wvY//8G5///Avj//wD////T0tL/8e/y/+3u8f/u6vD/7err/+zp6//Qz8v/t7Oy/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////A/T//wXs//8H5f//Cd7//wvX//8Nz///ERER/xEREf8RERH/ERER/xEREf8RERH/HpD//x6Q//8Av///tbO1/7e5tv/Py83/y8bL/8rLyP+2trT/tra0/7O2tv+2uLn/ubq6/9DP0f/Nysn/y8zM/7m4tP+3ubn/t7a4/wD///8RERH/ERER/w/H//8K1///Buj//wL3//8A////xsPD/+Hc4//r6en/6ens/+np7P/c4eP/wcHB/6+sr/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wP0//8F7f//B+X//wne//8L1v//Dc///xEREf8RERH/ERER/xEREf8RERH/ERER/x6Q//8dlP//AP///6yVSP+RaTn/hmcz/5RtOP+UbTn/kW02/4toNv+NZzP/lHU5/5FtPP+HZjH/imsx/5FsNv+QbTX/knA+/1g8HP8A////ERER/xEREf8Px///C9j//wbn//8C+P//AP///8HDxf/b29v/2dfd/+3r5//d3Nz/0s7H/7CytP+sqqv/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8D9P//Bez//wfl//8J3v//C9f//w3P//8PyP//EcD//xO5//8Vsf//F6r//xmi//8bm///HZP//xEREf+ymU//iGQx/2hDH/9sQCH/Y0Ud/2ZAIP9qQxz/bEAd/1U8G/9aPBz/aUMf/2lBH/9ZORr/mnhG/49tN/9bOx3/ERER/xEREf8RERH/D8f//wrX//8G6P//Avf//wD////ExMf/2tfZ/9jZ3v/d397/19XV/87Ozv+zs7f/rKus/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////A/T//wXt//8H5f//Cd7//wvW//8Nz///D8j//xHA//8TuP//FbH//xeq//8Zo///G5v//x2U//8RERH/rJBJ/41oNf9UPBz/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKmKRv+RbDb/Vzwa/xEREf8RERH/ERER/w/H//8L2P//Buf//wL4//8A////z9HO/9/c3f/Y19X/z87O/8fQzf/Y19j/yMfJ/7a3sv8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wP0//8F7P//B+X//wne//8L1///Dc///w/I//8RwP//E7n//xWx//8Xqv//GaL//xub//8dk///HpD//7SXUv+PbTv/VT4b/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACwl1L/j245/2tAIf8ekP//GKj//xO3//8Px///Ctf//wbo//8C9///AP///9HSzP/Rz8//wL7C/7S0sv+0t7v/ycrL/9LQ1P+2uLb/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8D9P//Be3//wfl//8J3v//C9b//w3P//8PyP//EcD//xO4//8Vsf//F6r//xmj//8bm///HZT//x6Q//+ojkf/kXA3/2pAH/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqpBF/5FuPP9qQiP/HpD//xin//8UuP//D8f//wvY//8G5///Avj//wD///+3trz/sLW1/7S2r/+iraf/r6+u/7e2tP+1trP/urW5/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}};
+const srcCache = {};
+function srcImg(n) {
+  if (!srcCache[n]) { const o = IMGS[n], cv = document.createElement('canvas'); cv.width = o.w; cv.height = o.h; const b = atob(o.d), a = new Uint8ClampedArray(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); cv.getContext('2d').putImageData(new ImageData(a, o.w, o.h), 0, 0); srcCache[n] = cv; }
+  return srcCache[n];
+}
+const matCache = {};
+function faceMat(spec) {
+  const key = JSON.stringify(spec); if (matCache[key]) return matCache[key];
+  if (spec[0] === 'img') {   // şəkildən kəsilmiş hissə: ['img', ad, x, y, en, hündürlük, güzgü, kəsmə]
+    const [, nm, sx, sy, sw, sh, fl, cut] = spec, cv = document.createElement('canvas'); cv.width = sw; cv.height = sh;
+    const c2 = cv.getContext('2d'); if (fl) { c2.translate(sw, 0); c2.scale(-1, 1); } c2.drawImage(srcImg(nm), sx, sy, sw, sh, 0, 0, sw, sh);
+    const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+    return matCache[key] = new THREE.MeshLambertMaterial({ map: t, alphaTest: cut ? .5 : 0 });
+  }
+  let h = 7; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const r = rnd(h >>> 0), cv = document.createElement('canvas'); cv.width = cv.height = 16;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const p = GEN[spec[0]](spec[1], x, y, r), i = (y * 16 + x) * 4;
+    im.data[i] = p[0]; im.data[i + 1] = p[1]; im.data[i + 2] = p[2]; im.data[i + 3] = p[3] ?? 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.colorSpace = THREE.SRGBColorSpace;
+  const glass = spec[0] === 'gl';
+  return matCache[key] = spec[2] ? new THREE.MeshBasicMaterial({ map: t }) : new THREE.MeshLambertMaterial({ map: t, transparent: glass, depthWrite: !glass });
+}
+
+// ===== BLOK NÖVLƏRİ: [ad, sekme, üst, yan, alt] =====
+const n = c => ['n', c], sp = (a, b) => ['sp', [a, b]], ore = c => sp(STONE, c), mt = c => ['mt', c], pl = c => ['pl', c];
+const DIRT = sp(DIRTC[0], DIRTC[1]);
+const WOOL = [['Ağ', [235, 235, 235]], ['Qırmızı', [200, 50, 50]], ['Narıncı', [240, 140, 40]], ['Sarı', [240, 220, 60]], ['Yaşıl', [80, 190, 60]], ['Mavi', [90, 170, 240]], ['Göy', [50, 70, 190]], ['Bənövşəyi', [140, 60, 190]], ['Çəhrayı', [240, 140, 190]], ['Boz', [120, 120, 120]], ['Qara', [30, 30, 35]], ['Qəhvəyi', [110, 75, 45]]];
+const DLO = ['img', 'door_lo', 0, 0, 16, 16, 0, 1], DUP = ['img', 'door_up', 0, 0, 16, 16, 0, 1];
+const B = [
+  ['Çəmən', 0, n(G), ['gs'], DIRT], ['Torpaq', 0, DIRT], ['Daş', 0, n(STONE)], ['Qum', 0, n([219, 207, 163])],
+  ['Çınqıl', 0, sp([135, 130, 128], [100, 96, 95])], ['Qar', 0, n([245, 250, 255])],
+  ['Gövdə', 0, ['lt'], ['ls', [102, 81, 50]], ['lt']], ['Yarpaq', 0, sp([60, 130, 50], [35, 95, 35])], ['Qumdaşı', 0, ['bd', [216, 201, 150]]],
+  ['Taxta', 1, pl([188, 152, 98])], ['Ağ taxta', 1, pl([216, 205, 160])], ['Tünd taxta', 1, pl([105, 75, 45])],
+  ['Kərpic', 1, ['br']], ['Kobud daş', 1, ['cb']], ['Daş kərpic', 1, ['sb']], ['Şüşə', 1, ['gl']],
+  ...WOOL.map(w => [w[0] + ' yun', 2, n(w[1])]),
+  ['Kömür', 3, ore([35, 35, 35])], ['Dəmir filizi', 3, ore([215, 170, 140])], ['Qızıl filizi', 3, ore([250, 220, 60])], ['Almaz filizi', 3, ore([90, 230, 230])], ['Qırmızı filiz', 3, ore([200, 30, 30])],
+  ['Qızıl blok', 3, mt([250, 215, 50])], ['Dəmir blok', 3, mt([220, 220, 220])], ['Almaz blok', 3, mt([90, 230, 230])], ['Zümrüd blok', 3, mt([60, 200, 90])], ['Lazurit blok', 3, mt([40, 70, 170])],
+  ['Obsidian', 3, sp([20, 16, 35], [70, 35, 110])],
+  ['Məşəl', 4, ['n', [255, 190, 50], 1], ['tr', null, 1], ['tr', null, 1], 'torch', true],
+  ['Yataq', 4, ['img', 'bed', 32, 16, 16, 16], ['pl', [150, 110, 65]], ['pl', [150, 110, 65]], 'bed'],
+  ...[0, 1, 2, 3].flatMap(k => {
+    const SB = ['img', 'bed', 16, 7, 16, 9, 0, 1], SBf = ['img', 'bed', 16, 7, 16, 9, 1, 1], PL = ['img', 'bed', 48, 0, 16, 16];
+    const HE = ['img', 'bed', 16, 23, 16, 9, 0, 1], FE = ['img', 'bed', 0, 7, 16, 9, 0, 1];
+    const HT = ['img', 'bed', 32, 16, 16, 16], FT = ['img', 'bed', 0, 16, 16, 16];
+    const HS = ['img', 'bed', 32, 7, 16, 9, 0, 1], HSf = ['img', 'bed', 32, 7, 16, 9, 1, 1];
+    return [
+      ['Yataq baş ' + k, -1, HT, HS, PL, 'bedH' + k, false, [HE, HE, HT, PL, HS, HSf]],
+      ['Yataq ayaq ' + k, -1, FT, SB, PL, 'bedF' + k, false, [FE, FE, FT, PL, SB, SBf]]];
+  }),
+  ['🏠 Hazır ev', 4, ['pl', [188, 152, 98]], ['br'], ['br'], 'house'],
+  ['Qapı', 4, DLO, DLO, DLO, 'dxc'],
+  ['Qapı Z', -1, DLO, DLO, DLO, 'dzc'],
+  ['Açıq qapı X', -1, DLO, DLO, DLO, 'dxo', true],
+  ['Açıq qapı Z', -1, DLO, DLO, DLO, 'dzo', true],
+  ['Qapı üst X', -1, DUP, DUP, DUP, 'dxc'],
+  ['Qapı üst Z', -1, DUP, DUP, DUP, 'dzc'],
+  ['Açıq qapı üst X', -1, DUP, DUP, DUP, 'dxo', true],
+  ['Açıq qapı üst Z', -1, DUP, DUP, DUP, 'dzo', true],
+];
+const typeMats = [];
+function blockMats(t) {
+  if (!typeMats[t]) { const [, , top, side, bot, , , faces] = B[t], s = side || top, b = bot || top; typeMats[t] = (faces || [s, s, top, b, s, s]).map(faceMat); }
+  return typeMats[t];
+}
+
+// ===== ARENA ZƏMİSİ (tək müstəvi) =====
+const ft = faceMat(n(G)).map.clone(); ft.needsUpdate = true; ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(A * 2, A * 2);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2), new THREE.MeshLambertMaterial({ map: ft }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const isFloorCell = (cx, cy, cz) => cy === -1 && cx >= -A && cx < A && cz >= -A && cz < A;
+
+// ===== VOXEL SİSTEMİ: növ başına 1 draw call + hash grid + DDA raycast =====
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const layers = [], grid = new Map(), dirty = new Set();
+const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), OFF = 1024;
+const cellKey = (x, y, z) => (x + OFF) + (y + OFF) * 2048 + (z + OFF) * 4194304;
+const inRange = (x, y, z) => Math.abs(x) < OFF && Math.abs(y) < OFF && Math.abs(z) < OFF;
+const geoCache = {};
+function shapeGeo(sh) {
+  if (!sh) return boxGeo; if (geoCache[sh]) return geoCache[sh];
+  const bm = /^bed[HF]([0-3])$/.exec(sh);
+  if (bm) { const g = new THREE.BoxGeometry(1, .5625, 1); g.translate(0, -.21875, 0); g.rotateY(((+bm[1] + 1) % 4) * Math.PI / 2); return geoCache[sh] = g; }
+  const D = { torch: [.14, .6, .14, 0, -.2, 0], bed: [1, .55, 1, 0, -.225, 0], dxc: [1, 1, .18, 0, 0, 0], dzc: [.18, 1, 1, 0, 0, 0], dxo: [.18, 1, 1, .41, 0, 0], dzo: [1, 1, .18, 0, 0, .41] }[sh];
+  const g = new THREE.BoxGeometry(D[0], D[1], D[2]); g.translate(D[3], D[4], D[5]); return geoCache[sh] = g;
+}
+function newMesh(t, cap) {
+  const m = new THREE.InstancedMesh(shapeGeo(B[t][5]), blockMats(t), cap);
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.count = 0; scene.add(m); return m;
+}
+function setCell(cx, cy, cz, t) {
+  if (!B[t] || !inRange(cx, cy, cz) || isFloorCell(cx, cy, cz)) return false;
+  const k = cellKey(cx, cy, cz); if (grid.has(k)) return false;
+  let L = layers[t]; if (!L) L = layers[t] = { cap: 1024, count: 0, keys: [], mesh: newMesh(t, 1024) };
+  if (L.count >= L.cap) {
+    const nm = newMesh(t, L.cap * 2); nm.instanceMatrix.array.set(L.mesh.instanceMatrix.array);
+    scene.remove(L.mesh); L.mesh.dispose(); L.mesh = nm; L.cap *= 2;
+  }
+  const i = L.count++; L.mesh.count = L.count;
+  L.mesh.setMatrixAt(i, _m.makeTranslation(cx, cy + 0.5, cz)); L.keys[i] = k;
+  grid.set(k, { t, i }); dirty.add(L); return true;
+}
+function clearCell(cx, cy, cz) {
+  const k = cellKey(cx, cy, cz), e = grid.get(k); if (!e) return false;
+  const L = layers[e.t], last = L.count - 1;
+  if (e.i !== last) { L.mesh.getMatrixAt(last, _m2); L.mesh.setMatrixAt(e.i, _m2); const lk = L.keys[last]; grid.get(lk).i = e.i; L.keys[e.i] = lk; }
+  L.keys.length = last; L.count = last; L.mesh.count = last; grid.delete(k); dirty.add(L); return true;
+}
+function flushInst() { if (!dirty.size) return; dirty.forEach(L => L.mesh.instanceMatrix.needsUpdate = true); dirty.clear(); }
+const solid = (x, y, z) => { const e = grid.get(cellKey(x, y, z)); return e ? !B[e.t][6] : isFloorCell(x, y, z); };
+function checkCollision(pos) {
+  const hx = 0.25, hy = (PLAYER_HEIGHT - 0.2) / 2, cyc = pos.y - PLAYER_HEIGHT / 2;
+  const x0 = Math.floor(pos.x - hx + .5), x1 = Math.floor(pos.x + hx + .5), y0 = Math.floor(cyc - hy), y1 = Math.floor(cyc + hy);
+  const z0 = Math.floor(pos.z - hx + .5), z1 = Math.floor(pos.z + hx + .5);
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) if (solid(x, y, z)) return true;
+  return false;
+}
+const rayRes = { hit: false, cx: 0, cy: 0, cz: 0, nx: 0, ny: 0, nz: 0, floor: false };
+function voxelRay(ox, oy, oz, dx, dy, dz, maxD) {
+  const u = ox + .5, w = oz + .5; let cx = Math.floor(u), cy = Math.floor(oy), cz = Math.floor(w);
+  const sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+  const tdx = dx ? Math.abs(1 / dx) : Infinity, tdy = dy ? Math.abs(1 / dy) : Infinity, tdz = dz ? Math.abs(1 / dz) : Infinity;
+  let tx = dx ? (sx > 0 ? cx + 1 - u : u - cx) * tdx : Infinity, ty = dy ? (sy > 0 ? cy + 1 - oy : oy - cy) * tdy : Infinity, tz = dz ? (sz > 0 ? cz + 1 - w : w - cz) * tdz : Infinity;
+  let nx = 0, ny = 0, nz = 0, t = 0;
+  while (t <= maxD) {
+    if (tx < ty && tx < tz) { cx += sx; t = tx; tx += tdx; nx = -sx; ny = 0; nz = 0; }
+    else if (ty < tz) { cy += sy; t = ty; ty += tdy; nx = 0; ny = -sy; nz = 0; }
+    else { cz += sz; t = tz; tz += tdz; nx = 0; ny = 0; nz = -sz; }
+    if (t > maxD) break;
+    const fl = isFloorCell(cx, cy, cz);
+    if (fl || grid.has(cellKey(cx, cy, cz))) { rayRes.hit = true; rayRes.cx = cx; rayRes.cy = cy; rayRes.cz = cz; rayRes.nx = nx; rayRes.ny = ny; rayRes.nz = nz; rayRes.floor = fl; return rayRes; }
+  }
+  rayRes.hit = false; return rayRes;
+}
+const _dir = new THREE.Vector3();
+function aimRay() { camera.getWorldDirection(_dir); return voxelRay(camera.position.x, camera.position.y, camera.position.z, _dir.x, _dir.y, _dir.z, 60); }
+const addBlock = (p, t) => setCell(Math.round(p.x), Math.round(p.y - .5), Math.round(p.z), t);
+const removeBlockAt = p => clearCell(Math.round(p.x), Math.round(p.y - .5), Math.round(p.z));
+
+const ghostBlock = new THREE.Mesh(new THREE.BoxGeometry(1.02, 1.02, 1.02), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: .5 }));
+scene.add(ghostBlock);
+
+// ===== HOTBAR + SEKMƏLİ ENVANTAR =====
+const tap = (el, fn) => { el.ontouchstart = e => { e.stopPropagation(); e.preventDefault(); fn(); }; el.onclick = () => fn(); };
+const idx = nm => B.findIndex(b => b[0] === nm);
+const DR = { X: idx('Qapı'), Z: idx('Qapı Z'), XO: idx('Açıq qapı X'), ZO: idx('Açıq qapı Z') };
+const DU = { X: idx('Qapı üst X'), Z: idx('Qapı üst Z'), XO: idx('Açıq qapı üst X'), ZO: idx('Açıq qapı üst Z') };
+const TOG = { [DR.X]: DR.XO, [DR.XO]: DR.X, [DR.Z]: DR.ZO, [DR.ZO]: DR.Z, [DU.X]: DU.XO, [DU.XO]: DU.X, [DU.Z]: DU.ZO, [DU.ZO]: DU.Z };
+const isDoorAt = (x, y, z) => { const e = grid.get(cellKey(x, y, z)); return !!e && TOG[e.t] !== undefined; };
+function toggleDoor(cx, cy, cz) {
+  let top = cy, bot = cy; while (isDoorAt(cx, top + 1, cz)) top++; while (isDoorAt(cx, bot - 1, cz)) bot--;
+  for (let y = bot; y <= top; y++) { const t = grid.get(cellKey(cx, y, cz)).t; clearCell(cx, y, cz); setCell(cx, y, cz, TOG[t]); }
+}
+// ===== HAZIR EV (hotbar-da "🏠 Hazır ev" seç və QOY bas, ya da çatda /ev) =====
+function houseCells() {
+  const b = new Map(), put = (x, y, z, n) => b.set(x + ',' + y + ',' + z, [x, y, z, n]);
+  const fill = (x0, x1, y0, y1, z0, z1, n) => { for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) put(x, y, z, n); };
+  const X0 = -6, X1 = 6, Z0 = -16, Z1 = -8;
+  fill(X0, X1, 0, 0, Z0, Z1, 'Daş kərpic'); fill(X0 + 1, X1 - 1, 0, 0, Z0 + 1, Z1 - 1, 'Tünd taxta');
+  for (let y = 1; y <= 4; y++) {
+    for (let x = X0; x <= X1; x++) for (const z of [Z0, Z1]) put(x, y, z, Math.abs(x + y) % 2 ? 'Taxta' : 'Ağ taxta');
+    for (let z = Z0; z <= Z1; z++) for (const x of [X0, X1]) put(x, y, z, Math.abs(z + y) % 2 ? 'Taxta' : 'Ağ taxta');
+  }
+  for (const x of [X0, X1]) for (const z of [Z0, Z1]) fill(x, x, 1, 4, z, z, 'Gövdə');
+  for (const x of [-4, -3, 3, 4]) fill(x, x, 2, 3, Z1, Z1, 'Şüşə');
+  for (const x of [-3, -2, 2, 3]) fill(x, x, 2, 3, Z0, Z0, 'Şüşə');
+  for (const x of [X0, X1]) { fill(x, x, 2, 3, -14, -13, 'Şüşə'); fill(x, x, 2, 3, -11, -10, 'Şüşə'); }
+  fill(-1, -1, 1, 3, Z1, Z1, 'Gövdə'); fill(1, 1, 1, 3, Z1, Z1, 'Gövdə'); put(0, 3, Z1, 'Tünd taxta'); put(0, 1, Z1, 'Qapı'); put(0, 2, Z1, 'Qapı üst X');
+  fill(X0, X1, 5, 5, Z0, Z1, 'Tünd taxta');
+  for (let k = 0; k < 5; k++) fill(X0 - 1, X1 + 1, 5 + k, 5 + k, Z0 - 1 + k, Z1 + 1 - k, 'Kərpic');
+  fill(X0 - 1, X1 + 1, 9, 9, -12, -12, 'Tünd taxta');
+  fill(4, 4, 5, 11, -15, -15, 'Kobud daş'); put(4, 12, -15, 'Daş kərpic');
+  for (let y = 1; y <= 3; y++) { put(3, y, -15, 'Daş kərpic'); put(5, y, -15, 'Daş kərpic'); }
+  put(4, 3, -15, 'Daş kərpic'); put(4, 1, -15, 'Narıncı yun'); put(4, 0, -15, 'Kobud daş');
+  put(-5, 1, -15, 'Yataq baş 0'); put(-5, 1, -14, 'Yataq ayaq 0');
+  fill(-1, 1, 1, 1, -14, -14, 'Tünd taxta'); put(-2, 1, -14, 'Qəhvəyi yun'); put(2, 1, -14, 'Qəhvəyi yun');
+  fill(-2, 2, 0, 0, -12, -10, 'Qırmızı yun'); put(0, 4, -12, 'Sarı yun'); put(0, 4, -9, 'Sarı yun');
+  fill(5, 5, 1, 1, -10, -9, 'Gövdə'); put(5, 2, -10, 'Qızıl blok'); put(5, 2, -9, 'Almaz blok');
+  fill(-2, 2, 0, 0, -7, -7, 'Daş kərpic'); fill(-3, 3, 0, 0, -6, -6, 'Daş kərpic');
+  for (let z = -5; z <= 1; z++) fill(-1, 1, 0, 0, z, z, 'Çınqıl');
+  const cols = ['Qırmızı yun', 'Sarı yun', 'Çəhrayı yun', 'Narıncı yun', 'Bənövşəyi yun'];
+  [-5, -4, -3, -2, 2, 3, 4, 5].forEach((x, i) => put(x, 0, -7, i % 2 === 0 ? 'Yarpaq' : cols[i % 5]));
+  for (const x of [-3, 3]) { fill(x, x, 0, 2, -3, -3, 'Gövdə'); put(x, 3, -3, 'Məşəl'); }
+  for (let x = -13; x <= 13; x++) for (const z of [-24, 2]) if (Math.abs(x) > 1 || z === -24) put(x, 0, z, 'Kobud daş');
+  for (let z = -24; z <= 2; z++) for (const x of [-13, 13]) put(x, 0, z, 'Kobud daş');
+  for (let x = -13; x < 14; x += 4) for (const z of [-24, 2]) put(x, 1, z, 'Gövdə');
+  for (let z = -24; z < 3; z += 4) for (const x of [-13, 13]) put(x, 1, z, 'Gövdə');
+  for (const [x, y, z] of [[-13, 2, -24], [13, 2, -24], [-13, 2, 0], [13, 2, 0], [-5, 1, -10], [5, 1, -14], [5, 1, -11], [-5, 1, -12], [-2, 1, -7], [2, 1, -7]]) put(x, y, z, 'Məşəl');
+  const tree = (cx, cz, h) => {
+    fill(cx, cx, 0, h, cz, cz, 'Gövdə');
+    for (const [dy, r] of [[h - 1, 2], [h, 2], [h + 1, 1]]) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.abs(dx) === r && Math.abs(dz) === r && r === 2) continue; if (!dx && !dz && dy <= h) continue; put(cx + dx, dy, cz + dz, 'Yarpaq');
+    }
+    put(cx, h + 2, cz, 'Yarpaq');
+  };
+  tree(-9, -14, 4); tree(9, -17, 5); tree(-9, -3, 4); tree(10, -4, 4);
+  for (let x = 6; x <= 10; x++) for (let z = -11; z <= -7; z++) put(x, 0, z, 'Qum');
+  fill(7, 9, 0, 0, -10, -8, 'Mavi yun');
+  return b;
+}
+const ZSWAP = { 'Qapı': 'Qapı Z', 'Qapı üst X': 'Qapı üst Z' };
+function placeHouse() {
+  let cx, cy = 0, cz;
+  if (ghostBlock.visible) { cx = Math.round(ghostBlock.position.x); cy = Math.round(ghostBlock.position.y - .5); cz = Math.round(ghostBlock.position.z); }
+  else { camera.getWorldDirection(_dir); cx = Math.round(camera.position.x + _dir.x * 14); cz = Math.round(camera.position.z + _dir.z * 14); }
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rot = Math.abs(fz) >= Math.abs(fx) ? (fz < 0 ? 0 : 2) : (fx < 0 ? 1 : 3);
+  const flat = [];
+  for (const [x, y, z, nm] of houseCells().values()) {
+    const dx = x, dz = z - 2; let rx, rz;
+    if (rot === 0) { rx = dx; rz = dz; } else if (rot === 1) { rx = dz; rz = -dx; } else if (rot === 2) { rx = -dx; rz = -dz; } else { rx = -dz; rz = dx; }
+    const bm = /^(Yataq (?:baş|ayaq)) ([0-3])$/.exec(nm);
+    const t = idx((rot & 1) && ZSWAP[nm] ? ZSWAP[nm] : bm ? bm[1] + ' ' + ((+bm[2] + rot) % 4) : nm);
+    if (setCell(cx + rx, cy + y, cz + rz, t)) flat.push(cx + rx, cy + y, cz + rz, t);
+  }
+  flushInst();
+  for (let i = 0; i < flat.length; i += 8000) broadcast({ type: 'sync', b: flat.slice(i, i + 8000) });
+  chatLine('', 'Ev quruldu (' + flat.length / 4 + ' blok)', true);
+}
+const DIRS = [[0, -1], [-1, 0], [0, 1], [1, 0]];
+function linkedCells(cx, cy, cz) {
+  const e = grid.get(cellKey(cx, cy, cz)), out = [[cx, cy, cz]]; if (!e) return out;
+  if (TOG[e.t] !== undefined) { let y = cy + 1; while (isDoorAt(cx, y, cz)) out.push([cx, y++, cz]); y = cy - 1; while (isDoorAt(cx, y, cz)) out.push([cx, y--, cz]); }
+  else { const m = /^Yataq (baş|ayaq) ([0-3])$/.exec(B[e.t][0]); if (m) { const [dx, dz] = DIRS[+m[2]], sg = m[1] === 'baş' ? -1 : 1; out.push([cx + sg * dx, cy, cz + sg * dz]); } }
+  return out;
+}
+const hotbar = ['Çəmən', 'Torpaq', 'Daş', 'Taxta', 'Kobud daş', 'Kərpic', 'Şüşə', 'Gövdə', 'Ağ yun'].map(idx);
+let sel = 0, curTab = 0;
+const cur = () => hotbar[sel];
+function icon(t) {
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), sh = B[t][5];
+  if (sh === 'torch') { g.fillStyle = '#785528'; g.fillRect(6, 6, 4, 10); g.fillStyle = '#ffaa28'; g.fillRect(6, 2, 4, 4); }
+  else if (B[t][0] === 'Yataq') { g.drawImage(srcImg('bed'), 0, 16, 16, 16, 0, 3, 8, 10); g.drawImage(srcImg('bed'), 32, 16, 16, 16, 8, 3, 8, 10); }
+  else g.drawImage(blockMats(t)[sh === 'bed' ? 2 : 0].map.image, 0, 0);
+  return c;
+}
+function renderHotbar() {
+  const box = $('inv-slots'); box.innerHTML = '';
+  hotbar.forEach((t, i) => { const d = document.createElement('div'); d.className = 'slot ui' + (i === sel ? ' active' : ''); d.title = B[t][0]; d.appendChild(icon(t)); tap(d, () => { sel = i; renderHotbar(); }); box.appendChild(d); });
+}
+const TABS = ['🌿 Təbiət', '🧱 Tikinti', '🎨 Yun', '💎 Mədən', '🏠 Əşya'];
+function renderPanel() {
+  const tabs = $('tabs'), g = $('pgrid'); tabs.innerHTML = ''; g.innerHTML = '';
+  TABS.forEach((nm, i) => { const d = document.createElement('div'); d.className = 'tab ui' + (i === curTab ? ' on' : ''); d.textContent = nm; tap(d, () => { curTab = i; renderPanel(); }); tabs.appendChild(d); });
+  B.forEach((b, t) => { if (b[1] !== curTab) return; const d = document.createElement('div'); d.className = 'pcell ui'; d.title = b[0]; d.appendChild(icon(t)); tap(d, () => { hotbar[sel] = t; renderHotbar(); $('inv-panel').style.display = 'none'; pcLock(); }); g.appendChild(d); });
+}
+tap($('picker-btn'), () => toggleInv());
+renderHotbar();
+
+// ===== OYUNÇU MODELİ + AD YAZISI =====
+function createHumanModel() {
+  const g = new THREE.Group(), skin = new THREE.MeshLambertMaterial({ color: 0xffdbac }), cl = new THREE.MeshLambertMaterial({ color: 0x302b63 });
+  const part = (w, h, d, mat, x, y, nm) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, 0); if (nm) m.name = nm; g.add(m); };
+  part(.35, .35, .35, skin, 0, 1.6); part(.5, .7, .25, cl, 0, 1.05);
+  part(.18, .65, .18, skin, -.35, 1.05, 'armL'); part(.18, .65, .18, skin, .35, 1.05, 'armR');
+  part(.2, .7, .2, cl, -.15, .35, 'legL'); part(.2, .7, .2, cl, .15, .35, 'legR');
+  return g;
+}
+function setLabel(m, name) {
+  const u = m.userData;
+  if (!u.cv) { u.cv = document.createElement('canvas'); u.cv.width = 256; u.cv.height = 64; u.tex = new THREE.CanvasTexture(u.cv); u.tex.colorSpace = THREE.SRGBColorSpace; u.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: u.tex, transparent: true })); u.sp.scale.set(1.6, .4, 1); u.sp.position.y = 2.05; m.add(u.sp); }
+  const c = u.cv.getContext('2d'); c.clearRect(0, 0, 256, 64); c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.lineWidth = 6; c.strokeStyle = '#000'; c.fillStyle = '#fff';
+  c.strokeText(name, 128, 44); c.fillText(name, 128, 44); u.tex.needsUpdate = true;
+}
+
+// ===== ÇAT =====
+function chatLine(name, text, sys) {
+  const log = $('chat-log'), d = document.createElement('div'); d.className = 'line' + (sys ? ' sys' : '');
+  if (name) { const b = document.createElement('b'); b.textContent = name + ': '; d.appendChild(b); }
+  d.appendChild(document.createTextNode(text)); log.appendChild(d);
+  while (log.children.length > 30) log.removeChild(log.firstChild);
+  setTimeout(() => d.classList.add('old'), 9000);
+}
+function openChat(on) {
+  $('chat-box').style.display = on ? 'flex' : 'none'; $('chat-log').classList.toggle('open', on);
+  if (on) { if (document.pointerLockElement) document.exitPointerLock(); $('chat-input').focus(); } else $('chat-input').blur();
+}
+function sendChat() {
+  const text = $('chat-input').value.trim().slice(0, 120); $('chat-input').value = '';
+  if (text.startsWith('/')) { runCmd(text.slice(1).trim().toLowerCase()); openChat(false); pcLock(); return; }
+  if (text) { chatLine(myName, text); broadcast({ type: 'chat', id: pid, name: myName, text }); }
+  openChat(false); pcLock();
+}
+
+// ===== DÜNYA SAXLA / YÜKLƏ (/endir, /enter) — .zip (saxlama rejimi, kitabxanasız) =====
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files) {
+  const enc = new TextEncoder(), d = new Date();
+  const dt = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF, dd = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF;
+  const parts = [], cen = []; let off = 0;
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint16(10, dt, true); h.setUint16(12, dd, true);
+    h.setUint32(14, crc, true); h.setUint32(18, f.data.length, true); h.setUint32(22, f.data.length, true); h.setUint16(26, nm.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), nm, f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true); c.setUint16(12, dt, true); c.setUint16(14, dd, true);
+    c.setUint32(16, crc, true); c.setUint32(20, f.data.length, true); c.setUint32(24, f.data.length, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    cen.push(new Uint8Array(c.buffer), nm); off += 30 + nm.length + f.data.length;
+  }
+  const cs = cen.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(e.buffer)], { type: 'application/zip' });
+}
+async function readZip(buf) {
+  const u = new Uint8Array(buf), v = new DataView(buf), out = {}, dec = new TextDecoder(); let e = -1;
+  for (let i = u.length - 22; i >= 0; i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('zip deyil');
+  let p = v.getUint32(e + 16, true);
+  for (let n = v.getUint16(e + 10, true); n > 0; n--) {
+    const method = v.getUint16(p + 10, true), cs = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), lo = v.getUint32(p + 42, true);
+    const name = dec.decode(u.subarray(p + 46, p + 46 + nl)), ds = lo + 30 + v.getUint16(lo + 26, true) + v.getUint16(lo + 28, true);
+    let data = u.subarray(ds, ds + cs);
+    if (method === 8) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    out[name] = data; p += 46 + nl + xl + cl;
+  }
+  return out;
+}
+function clearAll() { layers.forEach(L => { L.count = 0; L.keys.length = 0; L.mesh.count = 0; dirty.add(L); }); grid.clear(); flushInst(); }
+function worldChunks(send) {
+  let buf = [];
+  for (const [k, e] of grid) { buf.push(k % 2048 - OFF, Math.floor(k / 2048) % 2048 - OFF, Math.floor(k / 4194304) - OFF, e.t); if (buf.length >= 8000) { send({ type: 'sync', b: buf }); buf = []; } }
+  if (buf.length) send({ type: 'sync', b: buf });
+}
+function exportWorld() {
+  const enc = new TextEncoder(); let csv = 'x,y,z,id,ad\n', cnt = 0;
+  for (const [k, e] of grid) { csv += (k % 2048 - OFF) + ',' + (Math.floor(k / 2048) % 2048 - OFF) + ',' + (Math.floor(k / 4194304) - OFF) + ',' + e.t + ',' + B[e.t][0] + '\n'; cnt++; }
+  const meta = JSON.stringify({ oyun: 'VOXEL PRO', versiya: 1, tarix: new Date().toISOString(), blok_sayi: cnt, arena: A * 2 + 'x' + A * 2, qeyd: 'blocks.csv: hər sətir 1 blok (x,y,z = xana koordinatı, id, ad)' }, null, 2);
+  const blob = makeZip([{ name: 'world.json', data: enc.encode(meta) }, { name: 'blocks.csv', data: enc.encode(csv) }]);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dunya-' + Date.now() + '.zip'; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  chatLine('', 'Dünya endirildi: ' + cnt + ' blok', true);
+}
+const fileIn = document.createElement('input'); fileIn.type = 'file'; fileIn.accept = '.zip,application/zip'; fileIn.style.display = 'none'; document.body.appendChild(fileIn);
+fileIn.onchange = async () => {
+  const f = fileIn.files[0]; fileIn.value = ''; if (!f) return;
+  try {
+    const z = await readZip(await f.arrayBuffer()); if (!z['blocks.csv']) throw new Error('blocks.csv yoxdur');
+    const byName = {}; B.forEach((b, i) => byName[b[0]] = i);
+    const lines = new TextDecoder().decode(z['blocks.csv']).split('\n'), list = [];
+    for (let i = 1; i < lines.length; i++) { const c = lines[i].trim().split(','); if (c.length < 5) continue; const t = c[4] in byName ? byName[c[4]] : +c[3]; if (B[t]) list.push([+c[0], +c[1], +c[2], t]); }
+    clearAll(); list.forEach(b => setCell(b[0], b[1], b[2], b[3])); flushInst();
+    if (isHost) conns.forEach(c => { if (c.open) { c.send({ type: 'reset' }); worldChunks(m => c.send(m)); } });
+    chatLine('', 'Dünya yükləndi: ' + list.length + ' blok', true);
+  } catch (e) { chatLine('', 'Yükləmə alınmadı: ' + e.message, true); }
+};
+function runCmd(c) {
+  if (c === 'endir') exportWorld();
+  else if (c === 'enter') { if (hostConn) chatLine('', 'Dünyanı yalnız host yükləyə bilər', true); else { chatLine('', '.zip faylını seç...', true); fileIn.click(); } }
+  else if (c === 'ev') placeHouse();
+  else if (c === 'kilit zaman' || c === 'kilit') { timeLocked = !timeLocked; broadcast({ type: 'time', t: dayT, lock: timeLocked }); chatLine('', timeLocked ? '🔒 Zaman donduruldu' : '🔓 Zaman davam edir', true); }
+  else chatLine('', 'Əmrlər: /ev  /kilit zaman  /endir  /enter', true);
+}
+tap($('chat-btn'), () => openChat($('chat-box').style.display !== 'flex'));
+$('chat-send').onclick = sendChat; $('chat-send').ontouchstart = e => { e.stopPropagation(); e.preventDefault(); sendChat(); };
+$('chat-input').onkeydown = e => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') openChat(false); e.stopPropagation(); };
+
+// ===== ŞƏBƏKƏ: host hamını bir-birinə qoşur (ulduz) =====
+const pid = Math.random().toString(36).slice(2, 8), roomCode0 = Math.floor(1000 + Math.random() * 9000).toString();
+let myName = 'Oyunçu' + Math.floor(100 + Math.random() * 900), roomCode = '', peer, isHost = false, conns = [], hostConn = null;
+const others = {}, names = {}, RELAY = new Set(['hello', 'move', 'build', 'delete', 'chat', 'door', 'sync', 'time']);
+const status = s => { $('menu-status').textContent = s; };
+function readName() { const v = $('name-input').value.trim().slice(0, 14); if (v) myName = v; try { localStorage.setItem('vx_name', myName); } catch (e) {} }
+try { const sv = localStorage.getItem('vx_name'); if (sv) myName = sv; } catch (e) {}
+$('name-input').value = myName;
+function broadcast(d, except) { if (isHost) conns.forEach(c => { if (c !== except && c.open) c.send(d); }); else if (hostConn && hostConn.open) hostConn.send(d); }
+function roomText() { $('room-id-display').innerText = 'KOD: ' + roomCode + '  👥 ' + (Object.keys(others).length + 1); }
+function ensurePlayer(id) {
+  if (!others[id]) { const m = createHumanModel(); scene.add(m); m.userData.tp = new THREE.Vector3(0, -50, 0); m.userData.first = true; setLabel(m, names[id] || 'Oyunçu'); others[id] = m; roomText(); }
+  return others[id];
+}
+function removePlayer(id) { const m = others[id]; if (!m) return; scene.remove(m); delete others[id]; roomText(); }
+function handle(d) {
+  if (!d || typeof d !== 'object') return;
+  switch (d.type) {
+    case 'hello': names[d.id] = String(d.name).slice(0, 14); setLabel(ensurePlayer(d.id), names[d.id]); chatLine('', names[d.id] + ' qoşuldu', true); break;
+    case 'players': d.list.forEach(([id, nm]) => { names[id] = nm; setLabel(ensurePlayer(id), nm); }); break;
+    case 'move': { const m = ensurePlayer(d.id), u = m.userData; u.tp.set(d.pos.x, d.pos.y - EYE_LEVEL, d.pos.z); u.ry = d.rot; u.isMoving = d.isMoving; if (u.first) { m.position.copy(u.tp); m.rotation.y = d.rot; u.first = false; } break; }
+    case 'build': addBlock(d.pos, d.t); break;
+    case 'delete': removeBlockAt(d.pos); break;
+    case 'door': if (isDoorAt(Math.round(d.pos.x), Math.round(d.pos.y - .5), Math.round(d.pos.z))) toggleDoor(Math.round(d.pos.x), Math.round(d.pos.y - .5), Math.round(d.pos.z)); break;
+    case 'sync': for (let i = 0; i < d.b.length; i += 4) setCell(d.b[i], d.b[i + 1], d.b[i + 2], d.b[i + 3]); break;
+    case 'chat': chatLine(String(d.name).slice(0, 14), String(d.text).slice(0, 120)); break;
+    case 'reset': clearAll(); break;
+    case 'time': dayT = +d.t || 0; timeLocked = !!d.lock; break;
+    case 'leave': if (others[d.id]) { chatLine('', (names[d.id] || 'Oyunçu') + ' ayrıldı', true); removePlayer(d.id); } break;
+  }
+}
+function sendSync(c) {
+  c.send({ type: 'players', list: [[pid, myName], ...Object.keys(others).map(id => [id, names[id] || 'Oyunçu'])] });
+  c.send({ type: 'time', t: dayT, lock: timeLocked });
+  worldChunks(m => c.send(m));
+}
+window.startHost = () => {
+  readName(); isHost = true; roomCode = roomCode0; status('Otaq açılır...');
+  peer = new Peer('voxel-' + roomCode);
+  peer.on('open', () => { roomText(); showUI(); });
+  peer.on('error', e => status('Xəta: ' + e.type + ' — yenidən cəhd et'));
+  peer.on('connection', c => {
+    c.on('open', () => { conns.push(c); sendSync(c); });
+    c.on('data', d => { if (d && d.type === 'hello') c._pid = d.id; handle(d); if (d && RELAY.has(d.type)) broadcast(d, c); });
+    c.on('close', () => { conns = conns.filter(x => x !== c); if (c._pid) { handle({ type: 'leave', id: c._pid }); broadcast({ type: 'leave', id: c._pid }); } });
+  });
+};
+window.joinRoom = () => {
+  readName(); const code = $('room-input').value; if (code.length !== 4) { status('4 rəqəmli kod yaz'); return; }
+  roomCode = code; status('Qoşulur...'); peer = new Peer();
+  peer.on('error', () => status('Otaq tapılmadı'));
+  peer.on('open', () => {
+    hostConn = peer.connect('voxel-' + code, { reliable: true });
+    hostConn.on('open', () => { hostConn.send({ type: 'hello', id: pid, name: myName }); roomText(); showUI(); });
+    hostConn.on('data', handle);
+    hostConn.on('close', () => chatLine('', 'Host ayrıldı', true));
+  });
+};
+function showUI() {
+  $('main-menu').style.display = 'none'; gameOn = true;
+  const ids = ['crosshair', 'room-id-display', 'inventory-container', 'chat-btn', 'chat-log'];
+  if (IS_TOUCH) ids.push('joystick-zone', 'ui-controls');
+  ids.forEach(id => $(id).style.display = 'flex');
+  camera.position.set((Math.random() - .5) * 8, RESPAWN_Y, (Math.random() - .5) * 8);
+  goFullscreen();
+}
+function goFullscreen() {
+  if (IS_PC) return;
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req && !(document.fullscreenElement || document.webkitFullscreenElement)) { try { const r = req.call(el, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+}
+goFullscreen();
+addEventListener('load', goFullscreen);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) goFullscreen(); });
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) setTimeout(goFullscreen, 50); });
+addEventListener('touchend', goFullscreen); addEventListener('click', goFullscreen);
+
+// ===== PC İDARƏSİ: WASD, maus, E, 1-9, / =====
+const cvs = renderer.domElement; let gameOn = false;
+const locked = () => document.pointerLockElement === cvs;
+const typing = () => !!document.activeElement && document.activeElement.tagName === 'INPUT';
+const panelOpen = () => $('inv-panel').style.display === 'flex';
+function pcLock() { if (IS_PC && gameOn && !typing() && !panelOpen()) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } }
+function toggleInv() {
+  const pn = $('inv-panel');
+  if (panelOpen()) { pn.style.display = 'none'; pcLock(); } else { renderPanel(); pn.style.display = 'flex'; if (document.pointerLockElement) document.exitPointerLock(); }
+}
+setInterval(() => { $('pc-hint').style.display = IS_PC && gameOn && !locked() && !typing() && !panelOpen() ? 'block' : 'none'; }, 250);
+addEventListener('keydown', e => {
+  if (e.code === 'Escape' && panelOpen()) { toggleInv(); return; }
+  if (typing() || !gameOn) return;
+  if (e.key === '/') { e.preventDefault(); openChat(true); $('chat-input').value = '/'; return; }
+  if (e.code === 'KeyE') { if (!e.repeat) toggleInv(); return; }
+  if (/^Digit[1-9]$/.test(e.code)) { sel = +e.code.slice(5) - 1; renderHotbar(); return; }
+  if (e.code === 'Space') e.preventDefault();
+  keys[e.code] = true;
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { keys = {}; });
+document.addEventListener('mousemove', e => { if (locked()) { yaw -= e.movementX * .0022; pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * .0022)); } });
+document.addEventListener('mousedown', e => {
+  if (!IS_PC || !gameOn || e.target.closest('.ui')) return;
+  if (!locked()) { pcLock(); return; }
+  e.preventDefault();
+  if (e.button === 0) doDelete(); else if (e.button === 2) doBuild(); else if (e.button === 1) doUse();
+});
+document.addEventListener('contextmenu', e => { if (IS_PC && gameOn) e.preventDefault(); });
+addEventListener('wheel', e => { if (IS_PC && gameOn && !panelOpen() && !typing()) { sel = (sel + (e.deltaY > 0 ? 1 : 8)) % 9; renderHotbar(); } }, { passive: true });
+
+
+// ===== TOXUNUŞ İDARƏSİ =====
+addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) {
+    const jZ = $('joystick-zone').getBoundingClientRect();
+    if (t.clientX > jZ.left && t.clientX < jZ.right && t.clientY > jZ.top && t.clientY < jZ.bottom) joystickId = t.identifier;
+    else if (!t.target.closest('.btn, .ui')) { lookId = t.identifier; lastLookX = t.clientX; lastLookY = t.clientY; }
+  }
+}, { passive: false });
+addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joystickId) {
+      const r = $('joystick-zone').getBoundingClientRect(); const dx = t.clientX - (r.left + r.width / 2), dy = t.clientY - (r.top + r.height / 2);
+      const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 55), ang = Math.atan2(dy, dx);
+      moveX = Math.cos(ang) * (dist / 55); moveZ = Math.sin(ang) * (dist / 55);
+      $('joystick-stick').style.transform = `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px)`;
+    }
+    if (t.identifier === lookId) { yaw -= (t.clientX - lastLookX) * .007; pitch = Math.max(-1.5, Math.min(1.5, pitch - (t.clientY - lastLookY) * .007)); lastLookX = t.clientX; lastLookY = t.clientY; }
+  }
+}, { passive: false });
+addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joystickId) { joystickId = null; moveX = 0; moveZ = 0; $('joystick-stick').style.transform = 'translate(0,0)'; }
+    if (t.identifier === lookId) lookId = null;
+  }
+});
+function overlapsPlayer(cx, cy, cz) { const p = camera.position; return cx + .5 > p.x - .25 && cx - .5 < p.x + .25 && cy + 1 > p.y - 1.7 && cy < p.y - .1 && cz + .5 > p.z - .25 && cz - .5 < p.z + .25; }
+function doBuild() {
+  const t0 = cur(), sh = B[t0][5];
+  if (sh === 'house') { placeHouse(); return; }
+  if (!ghostBlock.visible) return;
+  const gx = Math.round(ghostBlock.position.x), gy = Math.round(ghostBlock.position.y - .5), gz = Math.round(ghostBlock.position.z);
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), k = Math.abs(fz) >= Math.abs(fx) ? (fz < 0 ? 0 : 2) : (fx < 0 ? 1 : 3), cells = [];
+  if (t0 === DR.X) { const o = (k & 1) ? 'Z' : 'X'; cells.push([gx, gy, gz, DR[o]], [gx, gy + 1, gz, DU[o]]); }          // qapı: 2 blok yuxarı
+  else if (t0 === idx('Yataq')) { const [dx, dz] = DIRS[k]; cells.push([gx + dx, gy, gz + dz, idx('Yataq baş ' + k)], [gx, gy, gz, idx('Yataq ayaq ' + k)]); } // yataq: 2 blok uzunluq
+  else cells.push([gx, gy, gz, t0]);
+  for (const c of cells) if (grid.has(cellKey(c[0], c[1], c[2])) || isFloorCell(c[0], c[1], c[2]) || (!B[c[3]][6] && overlapsPlayer(c[0], c[1], c[2]))) return;
+  for (const c of cells) if (setCell(c[0], c[1], c[2], c[3])) broadcast({ type: 'build', pos: { x: c[0], y: c[1] + .5, z: c[2] }, t: c[3] });
+}
+function doDelete() {
+  const r = aimRay();
+  if (r.hit && !r.floor) linkedCells(r.cx, r.cy, r.cz).forEach(c => { if (clearCell(c[0], c[1], c[2])) broadcast({ type: 'delete', pos: { x: c[0], y: c[1] + .5, z: c[2] } }); });
+}
+function doUse() {
+  const r = aimRay();
+  if (r.hit && !r.floor && isDoorAt(r.cx, r.cy, r.cz) && Math.hypot(r.cx - camera.position.x, r.cz - camera.position.z) < 6) { toggleDoor(r.cx, r.cy, r.cz); broadcast({ type: 'door', pos: { x: r.cx, y: r.cy + .5, z: r.cz } }); }
+}
+tap($('btn-build'), doBuild); tap($('btn-delete'), doDelete); tap($('btn-use'), doUse);
+let crouch = false; const isCrouch = () => crouch || !!keys.ShiftLeft || !!keys.ShiftRight;
+tap($('btn-crouch'), () => { crouch = !crouch; $('btn-crouch').style.background = crouch ? 'rgba(0,242,254,.35)' : ''; });
+tap($('btn-jump'), () => { if (canJump) { velocityY = .2; canJump = false; } });
+
+// ===== FİZİKA (sabit 60Hz) + RENDER =====
+camera.position.set(0, RESPAWN_Y, 0);
+// ===== GECƏ-GÜNDÜZ DÖVRÜ =====
+const DAY_LEN = 300, SKY_DAY = new THREE.Color(0x87CEEB), SKY_NIGHT = new THREE.Color(0x070b1f), SKY_DUSK = new THREE.Color(0xff8a50), sky = new THREE.Color();
+let dayT = 0.2, timeLocked = false, lastTime = 0, crouchOff = 0;
+const sunM = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color: 0xfff2a0, fog: false }));
+const moonM = new THREE.Mesh(new THREE.PlaneGeometry(28, 28), new THREE.MeshBasicMaterial({ color: 0xdde6ff, fog: false }));
+scene.add(sunM, moonM);
+const starPos = new Float32Array(900); for (let i = 0; i < 300; i++) { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = Math.sqrt(1 - u * u) * 250; starPos[i * 3] = Math.cos(a) * r; starPos[i * 3 + 1] = Math.abs(u) * 250; starPos[i * 3 + 2] = Math.sin(a) * r; }
+const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0 }));
+stars.frustumCulled = false; scene.add(stars);
+function applyTime() {
+  const a = dayT * Math.PI * 2, h = Math.sin(a), k = THREE.MathUtils.smoothstep(h, -.2, .25);
+  sky.copy(SKY_NIGHT).lerp(SKY_DAY, k).lerp(SKY_DUSK, Math.max(0, 1 - Math.abs(h) / .3) * .5);
+  scene.background.copy(sky); scene.fog.color.copy(sky);
+  amb.intensity = .28 + .52 * k; sun.intensity = .05 + .45 * k; sun.position.set(Math.cos(a) * 30, Math.max(h, .2) * 30, 10);
+  const cp = camera.position, cs = Math.cos(a) * 220, sn = Math.sin(a) * 220;
+  sunM.position.set(cp.x + cs, cp.y + sn, cp.z + 40); moonM.position.set(cp.x - cs, cp.y - sn, cp.z - 40);
+  sunM.visible = sn > -15; moonM.visible = sn < 15; sunM.lookAt(cp); moonM.lookAt(cp);
+  stars.material.opacity = 1 - k; stars.position.copy(cp);
+}
+const clock = new THREE.Clock(), STEP = 1 / 60;
+let acc = 0, lastSend = 0, isMovingNow = false;
+const _mv = new THREE.Vector3(), _test = new THREE.Vector3(), _step = new THREE.Vector3();
+const _t2 = new THREE.Vector3();
+const grounded = p => { _t2.copy(p); _t2.y -= .12; return checkCollision(_t2); };
+function tryMove(mx, mz) {
+  if (!mx && !mz) return false;
+  const sneak = isCrouch() && grounded(camera.position);   // əyiləndə blokun kənarından düşmür
+  _test.copy(camera.position); _test.x += mx; _test.z += mz;
+  if (!checkCollision(_test)) { if (sneak && !grounded(_test)) return false; camera.position.x += mx; camera.position.z += mz; return true; }
+  _step.copy(_test); _step.y += 1.1;
+  if (!checkCollision(_step)) { camera.position.y += 1.1; camera.position.x += mx; camera.position.z += mz; return true; }
+  return false;
+}
+function physicsStep() {
+  if (camera.position.y < -20) { camera.position.set(0, RESPAWN_Y, 0); velocityY = 0; }
+  if (keys.Space && canJump) { velocityY = .2; canJump = false; }
+  velocityY -= .01; _test.copy(camera.position); _test.y += velocityY;
+  if (!checkCollision(_test)) { camera.position.y += velocityY; canJump = false; } else { if (velocityY < 0) canJump = true; velocityY = 0; }
+  const dx = -Math.sin(yaw), dz = -Math.cos(yaw), speed = isCrouch() ? .06 : .15;
+  let fx = -moveX * speed, fz = -moveZ * speed;
+  if (keys.KeyW) fz += speed; if (keys.KeyS) fz -= speed; if (keys.KeyA) fx += speed; if (keys.KeyD) fx -= speed;
+  _mv.set(dx * fz + dz * fx, 0, dz * fz - dx * fx);
+  if (!tryMove(_mv.x, _mv.z)) { tryMove(_mv.x, 0); tryMove(0, _mv.z); }  // divara sürtünəndə sürüşür
+  if (checkCollision(camera.position)) camera.position.y += .1;
+  isMovingNow = _mv.x !== 0 || _mv.z !== 0;
+}
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), .1); acc += dt; let k = 0;
+  while (acc >= STEP && k < 6) { physicsStep(); acc -= STEP; k++; } if (k === 6) acc = 0;
+  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  const now = performance.now();
+  if (now - lastSend > 50 && (isHost ? conns.length : hostConn && hostConn.open)) { lastSend = now; broadcast({ type: 'move', id: pid, pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, rot: yaw, isMoving: isMovingNow }); }
+  const time = clock.elapsedTime, lk = 1 - Math.exp(-dt * 14);
+  for (const id in others) {
+    const m = others[id], u = m.userData;
+    m.position.lerp(u.tp, lk); let dr = (u.ry || 0) - m.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); m.rotation.y += dr * lk;
+    if (!u.aL) { u.aL = m.getObjectByName('armL'); u.aR = m.getObjectByName('armR'); u.lL = m.getObjectByName('legL'); u.lR = m.getObjectByName('legR'); }
+    const a = u.isMoving ? Math.sin(time * 10) * .5 : 0; u.lL.rotation.x = a; u.lR.rotation.x = -a; u.aL.rotation.x = -a; u.aR.rotation.x = a;
+  }
+  const r = aimRay();
+  if (r.hit) { ghostBlock.position.set(r.cx + r.nx, r.cy + .5 + r.ny, r.cz + r.nz); ghostBlock.visible = true; } else ghostBlock.visible = false;
+  if (!timeLocked) dayT = (dayT + dt / DAY_LEN) % 1;
+  if (isHost && conns.length && now - lastTime > 4000) { lastTime = now; broadcast({ type: 'time', t: dayT, lock: timeLocked }); }
+  crouchOff += ((isCrouch() ? .3 : 0) - crouchOff) * lk;
+  applyTime(); flushInst();
+  camera.position.y -= crouchOff; renderer.render(scene, camera); camera.position.y += crouchOff;
+}
+animate();
+const onResize = () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); };
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 200));
+document.addEventListener('fullscreenchange', () => setTimeout(onResize, 100));
+</script>
+</body>
+</html>
